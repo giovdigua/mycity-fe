@@ -1,7 +1,6 @@
 import {defineStore} from 'pinia';
 import {User} from "@/intrefaces/User";
 import instance from "../axios";
-import {stringify} from "postcss";
 
 
 interface AuthState {
@@ -14,7 +13,7 @@ export const useAuthStore = defineStore('auth', {
 
     state: (): AuthState => ({
         user: (() => {
-            const user:string|null = localStorage.getItem('user');
+            const user: string | null = localStorage.getItem('user');
             return user ? JSON.parse(user) : null;
         })(),
         token: localStorage.getItem('token') || null,
@@ -51,23 +50,12 @@ export const useAuthStore = defineStore('auth', {
                 if (this.user) {
                     localStorage.setItem('token', this.token ?? '');
                     instance.defaults.headers.common['Authorization'] = `Bearer ${this.token}`;
-                    // await this.fetchUser();
                     await this.fetchUsers();
                 }
             } catch (error) {
-
-                console.error('Login failed', error);
+                throw error
             }
         },
-        // async fetchUser() {
-        //   // eslint-disable-next-line no-useless-catch
-        //   try{
-        //     const response = await instance.get('/user');
-        //     this.user = response.data.data.user;
-        //   } catch (error) {
-        //    this.user = null;
-        //   }
-        // },
         async fetchUsers() {
             instance.defaults.headers.common['Authorization'] = `Bearer ${this.token}`;
             // eslint-disable-next-line no-useless-catch
@@ -78,13 +66,31 @@ export const useAuthStore = defineStore('auth', {
                 // throw error;
             }
         },
-      async logout() {
-        await instance.post('/logout');
-        this.token = null;
-        this.user = null;
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-      }
+        async logout() {
+            await instance.post('/logout');
+            this.token = null;
+            this.user = null;
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+        },
+        async updateUser(user: Partial<User>) {
+            try {
+                const response = await instance.put(`/users/${user.id}`, user);
+                this.users = this.users.map(u => (u.id === user.id ? response.data.user : u));
+            } catch (error) {
+                console.error('Failed to update user:', error);
+            }
+        },
+
+        async deleteUser(userId: number) {
+            instance.defaults.headers.common['Authorization'] = `Bearer ${this.token}`;
+            try {
+                await instance.delete(`/users/${userId}`);
+                // this.users = this.users.filter(u => u.id !== userId);
+            } catch (error) {
+                console.error('Failed to delete user:', error);
+            }
+        },
     },
     getters: {
         isAuthenticated: (state) => !!state.user,
