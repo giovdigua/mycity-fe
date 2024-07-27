@@ -148,18 +148,7 @@ const register = async () => {
     localStorage.setItem('email', email.value);
     router.push('/email/verify');
   } catch (error) {
-    console.log(error);
     if (error.response && error.response.data && error.response.data.data) {
-      // const serverErrors = error.response.data.data.error;
-      // console.log(serverErrors);
-      // for (const keys in serverErrors) {
-      //   console.log(keys)
-      //   for (const key in keys){
-      //     console.log(key)
-      //     errors.value[keys] = key;
-      //   }
-      // }
-      // console.log(errors)
       errors.value = error.response.data.data.error;
     } else {
       errorMessage.value = 'An error occurred during registration. Please try again later.';

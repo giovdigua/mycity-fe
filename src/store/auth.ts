@@ -74,11 +74,11 @@ export const useAuthStore = defineStore('auth', {
             localStorage.removeItem('user');
         },
         async updateUser(user: Partial<User>) {
+            // eslint-disable-next-line no-useless-catch
             try {
-                const response = await instance.put(`/users/${user.id}`, user);
-                this.users = this.users.map(u => (u.id === user.id ? response.data.user : u));
+                await instance.put(`/users/${user.id}`, user);
             } catch (error) {
-                console.error('Failed to update user:', error);
+                throw error;
             }
         },
 
