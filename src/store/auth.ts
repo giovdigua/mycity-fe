@@ -1,11 +1,11 @@
 import {defineStore} from 'pinia';
-import {User} from "@/intrefaces/User";
+import {User, UserPaginator} from "@/intrefaces/User";
 import instance from "../axios";
 
 
 interface AuthState {
     user: User | null;
-    users: User[] | [];
+    usersPaginator: UserPaginator |null;
     token: string | null,
 }
 
@@ -17,7 +17,7 @@ export const useAuthStore = defineStore('auth', {
             return user ? JSON.parse(user) : null;
         })(),
         token: localStorage.getItem('token') || null,
-        users: []
+        usersPaginator: null
     }),
     actions: {
         async register(userData: {
@@ -56,12 +56,13 @@ export const useAuthStore = defineStore('auth', {
                 throw error
             }
         },
-        async fetchUsers() {
+        async fetchUsers(page=1,sort:string|null = null) {
             instance.defaults.headers.common['Authorization'] = `Bearer ${this.token}`;
             // eslint-disable-next-line no-useless-catch
             try {
-                const response = await instance.get('/users');
-                this.users = response.data.data.users;
+                const stringSort = sort ? `&sort-surname=${sort}` : ''
+                const response = await instance.get(`/users?page=${page}${stringSort}`);
+                this.usersPaginator = response.data.data.users;
             } catch (error) {
                 // throw error;
             }

@@ -9,11 +9,18 @@
         <button class="btn btn-primary" @click="logout()">Logout</button>
       </div>
     </div>
-    <div v-if="authStore.users.length > 0" class="container mx-auto">
+    <div v-if="authStore.usersPaginator.data.length > 0" class="container mx-auto">
       <table class="table w-full mt-12">
         <thead>
         <tr>
-          <th>Surname</th>
+          <th>
+            <button @click="toggleSortOrder" class="flex items-center">
+              Surname
+              <span v-if="sortOrder === 'asc'" class="ml-2">▲</span>
+              <span v-if="sortOrder === 'desc'" class="ml-2">▼</span>
+              <span v-if="sortOrder === null" class="ml-2">↕</span>
+            </button>
+          </th>
           <th>Name</th>
           <th>Email</th>
           <th>Fiscal Code</th>
@@ -23,7 +30,7 @@
         </tr>
         </thead>
         <tbody>
-        <tr v-for="user in authStore.users" :key="user.id">
+        <tr v-for="user in authStore.usersPaginator.data" :key="user.id">
           <td>{{ user.surname }}</td>
           <td>{{ user.name }}</td>
           <td>{{ user.email }}</td>
@@ -52,6 +59,22 @@
         </tbody>
       </table>
     </div>
+    <TailwindPagination
+        :data="authStore.usersPaginator"
+        :limit="8"
+        @pagination-change-page="fetchUsers"
+    >
+    <template #prev-nav>
+      <button class="btn btn-primary" :disabled="!authStore.usersPaginator.prev_page_url">
+        Prev
+      </button>
+    </template>
+    <template #next-nav>
+      <button class="btn btn-primary" :disabled="!authStore.usersPaginator.next_page_url">
+        Next
+      </button>
+    </template>
+    </TailwindPagination>
     <dialog ref="showDeleteModal" class="modal">
       <div class="modal-box">
         <h3 class="text-lg font-bold">Confirm Delete</h3>
@@ -77,7 +100,7 @@
                 class="grow text-gray-800"
             />
           </label>
-            <ul v-if="errors.name" class="text-red-500">
+          <ul v-if="errors.name" class="mx-4 text-red-500">
               <li v-for="item in errors.name">
                 {{item}}
               </li>
@@ -92,12 +115,12 @@
                 required
                 class="grow text-gray-800"
             />
-            <ul v-if="errors.surname" class="text-red-500">
-              <li v-for="item in errors.surname">
-                {{item}}
-              </li>
-            </ul>
           </label>
+          <ul v-if="errors.surname" class="text-red-500">
+            <li v-for="item in errors.surname">
+              {{ item }}
+            </li>
+          </ul>
 
           <label class="input input-bordered flex items-center gap-2 text-gray-400">
             Email:
@@ -109,11 +132,11 @@
                 class="grow text-gray-800"
             />
           </label>
-            <ul v-if="errors.email" class="text-red-500">
-              <li v-for="item in errors.email">
-                {{item}}
-              </li>
-            </ul>
+          <ul v-if="errors.email" class="text-red-500">
+            <li v-for="item in errors.email">
+              {{ item }}
+            </li>
+          </ul>
 
           <label class="input input-bordered flex items-center gap-2 text-gray-400">
             Fiscal Code:
@@ -124,12 +147,12 @@
                 required
                 class="grow text-gray-800"
             />
-            <ul v-if="errors.fiscal_code" class="text-red-500">
-              <li v-for="item in errors.fiscal_code">
-                {{item}}
-              </li>
-            </ul>
           </label>
+          <ul v-if="errors.fiscal_code" class="my-4 text-red-500">
+            <li v-for="item in errors.fiscal_code">
+              {{ item }}
+            </li>
+          </ul>
 
           <label class="input input-bordered flex items-center gap-2 text-gray-400">
             Phone Number:
@@ -141,11 +164,11 @@
                 class="grow text-gray-800"
             />
           </label>
-            <ul v-if="errors.phone_number" class="text-red-500">
-              <li v-for="item in errors.phone_number">
-                {{item}}
-              </li>
-            </ul>
+          <ul v-if="errors.phone_number" class="text-red-500">
+            <li v-for="item in errors.phone_number">
+              {{ item }}
+            </li>
+          </ul>
 
           <label class="input input-bordered flex items-center gap-2 text-gray-400">
             Date of Birth:
@@ -156,12 +179,12 @@
                 required
                 class="grow text-gray-800"
             />
-            <ul v-if="errors.date_of_birth" class="text-red-500">
-              <li v-for="item in errors.date_of_birth">
-                {{item}}
-              </li>
-            </ul>
           </label>
+          <ul v-if="errors.date_of_birth" class="text-red-500">
+            <li v-for="item in errors.date_of_birth">
+              {{ item }}
+            </li>
+          </ul>
 
           <div class="flex flex-row justify-end">
             <button class="btn btn-error mr-1.5" @click="updateUser()">Edit</button>
@@ -180,6 +203,7 @@
 </template>
 
 <script lang="ts" setup>
+import {TailwindPagination} from 'laravel-vue-pagination';
 import {onMounted, ref} from 'vue';
 import {useAuthStore} from '@/store/auth';
 import router from "@/router";
@@ -193,20 +217,25 @@ const toastMessage = ref('');
 const selectedUser = ref<Partial<User>>({});
 const errorMessage = ref('');
 const errors = ref<{ [key: string]: string }>({});
+const sortOrder = ref<string | null>(null);
+const currentPage = ref(1);
 
 onMounted(() => {
   if (authStore.token) {
-    authStore.fetchUsers();
+    fetchUsers();
   }
 });
-
+const fetchUsers = async (page = 1) => {
+  currentPage.value = page;
+  await authStore.fetchUsers(page,sortOrder.value)
+};
 const confirmDelete = (user: User) => {
   selectedUser.value = {...user};
   showDeleteModal.value.showModal();
 };
 const deleteUser = async (id: number) => {
   await authStore.deleteUser(id);
-  await authStore.fetchUsers();
+  await fetchUsers(currentPage.value);
   showDeleteModal.value.close();
   selectedUser.value = {};
   errors.value = {};
@@ -225,7 +254,7 @@ const editUser = (user: User) => {
 const updateUser = async () => {
   try {
     await authStore.updateUser(selectedUser.value);
-    await authStore.fetchUsers();
+    await fetchUsers(currentPage.value);
     selectedUser.value = {};
     errors.value = {};
     showEditModal.value.close();
@@ -252,4 +281,15 @@ const showToastAlert = (message:string) => {
     showToast.value = false
   },5000);
 }
+
+const toggleSortOrder = async () => {
+  if (sortOrder.value === null) {
+    sortOrder.value = 'asc';
+  } else if (sortOrder.value === 'asc') {
+    sortOrder.value = 'desc';
+  } else if (sortOrder.value === 'desc') {
+    sortOrder.value = null;
+  }
+  fetchUsers(currentPage.value);
+};
 </script>
